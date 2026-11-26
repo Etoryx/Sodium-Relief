@@ -41,9 +41,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Check for Modrinth credentials
+        id: modrinth-credentials
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          if [[ -n "$MODRINTH_TOKEN" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::MODRINTH_TOKEN is not configured; skipping Modrinth publishing."
+          fi
+
       # `-PmodrinthRelease` flips Minotaur out of its default dry-run (debugMode) and actually
       # uploads. Runs core unit tests first; the in-game gametests are validated separately.
       - name: Publish all modules to Modrinth
+        if: ${{ steps.modrinth-credentials.outputs.configured == 'true' }}
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CHANGELOG: ${{ github.event.release.body }}

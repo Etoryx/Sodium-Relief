@@ -30,6 +30,10 @@ if (settings.providers.gradleProperty("include_mc262x").map { Boolean.parseBoole
     include "sodium-relief-mc262x"
 }
 
+if (settings.providers.gradleProperty("include_mc263x").map { Boolean.parseBoolean(it) }.getOrElse(true)) {
+    include "sodium-relief-mc263x"
+}
+
 // Legacy 1.21–1.21.10 range-jars. Same obfuscated/Yarn/Java-21 platform as the 1.21.11
 // module; each covers a Minecraft compatibility group and is gated behind its own flag
 // (default on) so any group can be skipped with e.g. `-Pinclude_mc1211=false`.

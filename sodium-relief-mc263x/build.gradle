@@ -1,0 +1,96 @@
+plugins {
+    id "com.modrinth.minotaur" version "2.+"
+    id "net.fabricmc.fabric-loom" version "${loom_version}"
+}
+
+base {
+    archivesName = "${mod_id}-mc263x"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+// Compile the common 26.2/26.3 client sources against each game's own APIs.
+def sharedSources = rootProject.file("sodium-relief-mc262x/src")
+sourceSets.main.java.srcDir new File(sharedSources, "main/java")
+sourceSets.main.resources.srcDir new File(sharedSources, "main/resources")
+
+loom {
+    mods {
+        sodiumrelief {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "sodiumrelief-gametest"
+        enableClientGameTests = true
+        eula = true
+    }
+}
+
+sourceSets.gametest.java.srcDir new File(sharedSources, "gametest/java")
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_263x}"
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_263x}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_263x}"
+    implementation project(":sodium-relief-core")
+
+    compileOnly "com.terraformersmc:modmenu:${modmenu_263x}"
+    runtimeOnly "com.terraformersmc:modmenu:${modmenu_263x}"
+    runtimeOnly "maven.modrinth:sodium:${sodium_263x}"
+
+    if (project.hasProperty("testEnchantmentDescriptions")) {
+        gametestRuntimeOnly "maven.modrinth:enchantment-descriptions:26.3.0.2"
+        gametestRuntimeOnly "maven.modrinth:prickle:26.3.0.2"
+    }
+}
+
+tasks.named("runClientGameTest", JavaExec) {
+    systemProperty "sodiumrelief.testEnchantmentDescriptions", project.hasProperty("testEnchantmentDescriptions")
+}
+
+["processResources", "processGametestResources"].each { taskName ->
+    tasks.named(taskName, ProcessResources) {
+        def metadata = [version: project.version, minecraft: "~26.3", loader: ">=0.19.5"]
+        inputs.properties metadata
+        filesMatching("fabric.mod.json") { expand metadata }
+    }
+}
+
+jar {
+    from(project(":sodium-relief-core").sourceSets.main.output)
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+sourcesJar {
+    from(project(":sodium-relief-core").sourceSets.main.allSource)
+}
+
+modrinth {
+    debugMode = !project.hasProperty("modrinthRelease")
+    projectId = "sodium-relief"
+    versionNumber = "${project.version}+${minecraft_263x}"
+    versionName = "Sodium Relief ${project.version} for MC ${minecraft_263x}"
+    versionType = project.findProperty("modrinthVersionType") ?: "release"
+    uploadFile = tasks.jar
+    gameVersions = [minecraft_263x]
+    loaders = ["fabric"]
+    changelog = providers.environmentVariable("CHANGELOG").getOrElse("")
+    dependencies {
+        required.project "fabric-api"
+        optional.project "modmenu"
+        optional.project "sodium"
+    }
+}

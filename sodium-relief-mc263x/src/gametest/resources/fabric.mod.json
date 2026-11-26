@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "sodiumrelief-gametest",
+  "version": "1.0.0",
+  "name": "Sodium Relief Gametest",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "com.erodev.sodiumrelief.gametest.TooltipBenchmarkClientGameTest",
+      "com.erodev.sodiumrelief.gametest.EnchantmentDescriptionsClientGameTest"
+    ]
+  },
+  "mixins": ["sodiumrelief.gametest.mixins.json"],
+  "depends": {
+    "sodiumrelief": "*",
+    "fabricloader": "${loader}",
+    "minecraft": "${minecraft}"
+  }
+}

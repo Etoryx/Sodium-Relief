@@ -56,16 +56,13 @@ dependencies {
 
     compileOnly "com.terraformersmc:modmenu:${modmenu_262x}"
     runtimeOnly "com.terraformersmc:modmenu:${modmenu_262x}"
-
-    // No Sodium publication confirmed for 26.x. Add once available:
-    // compileOnly "maven.modrinth:sodium:${sodium_262x}"
 }
 
-processResources {
-    inputs.property "version", project.version
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+["processResources", "processGametestResources"].each { taskName ->
+    tasks.named(taskName, ProcessResources) {
+        def metadata = [version: project.version, minecraft: "~26.2", loader: ">=0.19"]
+        inputs.properties metadata
+        filesMatching("fabric.mod.json") { expand metadata }
     }
 }
 

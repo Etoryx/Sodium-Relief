@@ -3,6 +3,7 @@ package com.erodev.sodiumrelief.mixin.tooltip;
 import com.erodev.sodiumrelief.cache.TooltipLayoutCache.CachedTooltipLayout;
 import com.erodev.sodiumrelief.client.SodiumReliefClient;
 import com.erodev.sodiumrelief.client.SodiumReliefRuntime;
+import com.erodev.sodiumrelief.compat.TooltipCompatibility;
 import com.erodev.sodiumrelief.config.ReliefConfig;
 import com.erodev.sodiumrelief.hover.HoverAssessment;
 import com.erodev.sodiumrelief.tooltip.TooltipPresentationService.TooltipTiming;
@@ -15,6 +16,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
@@ -69,11 +71,14 @@ public abstract class HandledScreenTooltipMixin {
         }
 
         ReliefConfig config = runtime.configManager().config();
-        if (!config.enableMod) {
+        if (!config.enableMod || !config.enableTooltipLayoutCache) {
             return original.call(screen, stack);
         }
 
-        runtime.metrics().tooltipPathInvocation();
+        if (TooltipCompatibility.enchantmentDescriptionsLoaded()
+            && (stack.isEnchanted() || stack.has(DataComponents.STORED_ENCHANTMENTS))) {
+            return original.call(screen, stack);
+        }
 
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || hoveredSlot == null || !hoveredSlot.hasItem()) {
@@ -91,6 +96,7 @@ public abstract class HandledScreenTooltipMixin {
             return original.call(screen, stack);
         }
 
+        runtime.metrics().tooltipPathInvocation();
         boolean detailed = runtime.metrics().detailedMetricsEnabled();
         Class<?> screenClass = screen.getClass();
         int slotId = hoveredSlot.index;

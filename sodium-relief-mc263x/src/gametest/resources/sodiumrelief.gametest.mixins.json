@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "com.erodev.sodiumrelief.gametest.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["TooltipSubmissionMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -41,7 +41,7 @@ public class TooltipBenchmarkClientGameTest implements FabricClientGameTest {
         try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
             // Benchmark with detailed metrics on so build-cost and text-width timings are captured.
             context.runOnClient(client -> SodiumReliefClient.runtime().metrics().applyDebugMode(true));
-            singleplayer.getClientLevel().waitForChunksRender();
+            context.waitFor(client -> client.player != null);
 
             openInventoryWith(context, slot -> new ItemStack(Items.NETHERITE_PICKAXE));
             runStaticHoverScenario(context);
@@ -53,11 +53,11 @@ public class TooltipBenchmarkClientGameTest implements FabricClientGameTest {
 
     private void runStaticHoverScenario(ClientGameTestContext context) {
         double[] cursor = context.computeOnClient(client -> cursorTargetForSlot(client, firstFilledSlot(client)));
+        long[] before = context.computeOnClient(client -> {
+            SodiumReliefClient.runtime().cacheInvalidationManager().invalidateTooltipCache();
+            return readCounters(client);
+        });
         context.getInput().setCursorPos(cursor[0], cursor[1]);
-
-        // Measure from the moment the cursor lands, so the delta includes the one
-        // unavoidable first rebuild as well as every subsequent reuse.
-        long[] before = context.computeOnClient(TooltipBenchmarkClientGameTest::readCounters);
         context.waitTicks(WARMUP_TICKS);
         context.takeScreenshot("sodium-relief-inventory-tooltip");
         context.waitTicks(STATIC_SAMPLE_TICKS);
@@ -127,7 +127,7 @@ public class TooltipBenchmarkClientGameTest implements FabricClientGameTest {
         ReliefMetrics metrics = runtime.metrics();
         return new long[] {
             metrics.tooltipPathInvocations(),
-            metrics.tooltipExpensivePathInvocations(),
+            metrics.tooltipBuildSamples(),
             metrics.tooltipHits(),
             metrics.tooltipMisses()
         };
@@ -135,22 +135,22 @@ public class TooltipBenchmarkClientGameTest implements FabricClientGameTest {
 
     private static void logAndAssertScenario(String name, long[] before, long[] after) {
         long invocations = after[0] - before[0];
-        long expensive = after[1] - before[1];
+        long builds = after[1] - before[1];
         long hits = after[2] - before[2];
         long misses = after[3] - before[3];
-        long reused = invocations - expensive;
+        long reused = invocations - builds;
         double reuseRate = invocations <= 0 ? 0.0 : (reused * 100.0) / invocations;
 
         ReliefLogger.info(String.format(
-            "[gametest] %s: invocations=%d expensive=%d reused=%d hits=%d misses=%d reuse=%.2f%%",
-            name, invocations, expensive, reused, hits, misses, reuseRate
+            "[gametest] %s: invocations=%d builds=%d reused=%d hits=%d misses=%d reuse=%.2f%%",
+            name, invocations, builds, reused, hits, misses, reuseRate
         ));
 
         if (invocations <= 0) {
             throw new AssertionError(name + ": cursor never settled on a filled slot (0 invocations)");
         }
-        if (reused <= 0) {
-            throw new AssertionError(name + ": no reuse occurred (expensive " + expensive + " of " + invocations + " invocations)");
+        if (builds <= 0 || reused <= 0 || hits <= 0) {
+            throw new AssertionError(name + ": expected both fresh builds and cache hits");
         }
     }
 
@@ -182,7 +182,7 @@ public class TooltipBenchmarkClientGameTest implements FabricClientGameTest {
         throw new AssertionError("Inventory screen was not open");
     }
 
-    private static double[] cursorTargetForSlot(Minecraft client, Slot slot) {
+    static double[] cursorTargetForSlot(Minecraft client, Slot slot) {
         Window window = client.getWindow();
         int originX = (window.getGuiScaledWidth() - INVENTORY_BACKGROUND_WIDTH) / 2;
         int originY = (window.getGuiScaledHeight() - INVENTORY_BACKGROUND_HEIGHT) / 2;
